@@ -5,14 +5,12 @@
 # # Scaler is exported as scaler.pkl
 # # Model is exported as model.pkl
 # # Feature is exported as feature_names.pkl
-# # Order of the X -> 'Age', 'Gender', 'Tenure', 'MonthlyCharges'
 
 import streamlit as st
 import joblib
 import numpy as np
 import pandas as pd
 import shap
-import matplotlib.pyplot as plt
 
 scaler = joblib.load('scaler.pkl')
 model = joblib.load('best_model.pkl')
@@ -52,26 +50,23 @@ if predict_button:
     # Tech Support Mapping
     tech_yes = 1 if tech_support == "Yes" else 0
     
-    # scaling numerical inputs
-    # since the scaler was trained on ['Age', 'Tenure', 'MonthlyCharges'] only
-    num_input = np.array([[age, tenure, monthly_charge]])
-    num_scaled = scaler.transform(num_input) # Returns [[scaled_age, scaled_tenure, scaled_charge]]
-    
-    # Extract scaled values
-    scaled_age = num_scaled[0][0]
-    scaled_tenure = num_scaled[0][1]
-    scaled_charge = num_scaled[0][2]
-    
     # array with all features in order
-    input_data = pd.DataFrame([[
-        scaled_age, 
-        gender_val, 
-        scaled_tenure, 
-        scaled_charge, 
-        is_fiber, 
-        is_no_internet, 
-        tech_yes
-    ]], columns=features)
+    input_dict = {
+    'Age': age,
+    'Gender': gender_val,
+    'Tenure': tenure,
+    'MonthlyCharges': monthly_charge,
+    'InternetService_Fiber Optic': is_fiber,
+    'InternetService_No Internet': is_no_internet,
+    'TechSupport_Yes': tech_yes
+    }
+
+    input_df = pd.DataFrame([input_dict])
+    input_df = input_df[features]  # enforce order
+    
+    # scale only numeric columns
+    input_df[['Age', 'Tenure', 'MonthlyCharges']] = scaler.transform(input_df[['Age', 'Tenure', 'MonthlyCharges']])
+    input_data = input_df
 
     st.divider()
     # prediction
@@ -91,21 +86,6 @@ if predict_button:
     else:
         st.error(f"High Risk: {prob_percentage:.1f}% Probability of Churn")
         st.write("Suggestion: HIGH CHURN RISK! Immediate action required. Offer a long-term contract discount or dedicated support.")
-
-    # # --- 6. SHAP Explanation ---
-    # st.divider()
-    # st.subheader("Why this result?")
-    # st.write("The chart below shows which features pushed the risk UP (Red) or DOWN (Blue).")
-    
-    # # Calculate SHAP
-    # explainer = shap.TreeExplainer(model)
-    # shap_values = explainer(input_data)
-    
-    # # Plot
-    # fig, ax = plt.subplots()
-    # # [0, :, 1] -> Row 0, All features, Class 1 (Churn)
-    # shap.plots.waterfall(shap_values[0, :, 1], show=False, max_display=10)
-    # st.pyplot(plt.gcf())
 
     # Smart Explanation
     st.divider()

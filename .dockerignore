@@ -1,0 +1,16 @@
+# Ignore the data
+*.csv
+*.xlsx
+
+# Ignore Jupyter Notebooks
+*.ipynb
+
+# Ignore Virtual Environments (CRITICAL)
+venv/
+env/
+myenv/
+.git/
+__pycache__/
+
+# Ignore any other random folders
+experiments/
