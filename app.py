@@ -2,15 +2,13 @@
 # # Churn -> 1 Yes 0 No
 # # InternetService -> One-Hot Encoding
 # # TechSupport -> 1 Yes 0 No
-# # Scaler is exported as scaler.pkl
-# # Model is exported as model.pkl
-# # Feature is exported as feature_names.pkl
 
 import streamlit as st
 import joblib
 import numpy as np
 import pandas as pd
 import shap
+import matplotlib.pyplot as plt
 
 scaler = joblib.load('scaler.pkl')
 model = joblib.load('best_model.pkl')
@@ -24,25 +22,23 @@ st.divider()
 col1, col2 = st.columns(2)
 
 with col1:
-    age = st.number_input("Age", min_value=10, max_value=100, value=30)
+    age = st.number_input("Age", min_value=18, max_value=100, value=30)
     gender = st.selectbox("Gender", ["Male", "Female"])
     tenure = st.number_input("Tenure (Months)", min_value=0, max_value=130, value=12)
 
 with col2:
-    monthly_charge = st.number_input("Monthly Charge ($)", min_value=0.0, max_value=200.0, value=70.0)
+    monthly_charge = st.number_input("Monthly Charge ($)", min_value=20.0, max_value=200.0, value=70.0)
     internet_service = st.selectbox("Internet Service", ["DSL", "Fiber Optic", "No Internet"])
     tech_support = st.selectbox("Has Tech Support?", ["Yes", "No"])
 
 
 predict_button = st.button("Predict Churn")
-# predict_button = st.button("Predict Churn Risk")
 
 if predict_button:
     
     # mapping the categorical inputs to numbers
     gender_val = 1 if gender == "Female" else 0
     
-    # Internet Service Mapping (One-Hot)
     # we only check for Fiber and No Internet since DSL is the base case
     is_fiber = 1 if internet_service == "Fiber Optic" else 0
     is_no_internet = 1 if internet_service == "No Internet" else 0
@@ -87,13 +83,24 @@ if predict_button:
         st.error(f"High Risk: {prob_percentage:.1f}% Probability of Churn")
         st.write("Suggestion: HIGH CHURN RISK! Immediate action required. Offer a long-term contract discount or dedicated support.")
 
-    # Smart Explanation
-    st.divider()
-    st.subheader("Key Factors Behind this Result")
-    
     # Calculate SHAP values
     explainer = shap.TreeExplainer(model)
     shap_values = explainer(input_data)
+    
+    # --- 6. SHAP Explanation ---
+    st.divider()
+    st.subheader("Why this result?")
+    st.write("The chart below shows which features pushed the risk UP (Red) or DOWN (Blue).")
+    
+    # Plot
+    fig, ax = plt.subplots()
+    shap.plots.waterfall(shap_values[0, :, 1], show=False, max_display=10)
+    st.pyplot(plt.gcf())
+
+###
+    # Smart Explanation
+    st.divider()
+    st.subheader("Key Factors Behind this Result")
     
     # Extract the values for the single prediction (Row 0, Class 1)
     # .values returns the raw numbers
@@ -104,8 +111,8 @@ if predict_button:
     })
     
     # Separate into "Risk Factors" (Positive) and "Safety Factors" (Negative)
-    risk_factors = feature_importance[feature_importance['Contribution'] > 0].sort_values(by='Contribution', ascending=False)
-    safety_factors = feature_importance[feature_importance['Contribution'] < 0].sort_values(by='Contribution', ascending=True)
+    risk_factors = feature_importance[feature_importance['Contribution'] > 0.02].sort_values(by='Contribution', ascending=False)
+    safety_factors = feature_importance[feature_importance['Contribution'] < 0.02].sort_values(by='Contribution', ascending=True)
     
 
     def key_driver_text(row):
@@ -141,7 +148,6 @@ if predict_button:
         st.caption("These factors are PUSHING the customer to leave.")
         if not risk_factors.empty:
             for index, row in risk_factors.head(3).iterrows():
-                # Display simply: "High Monthly Charges (+0.15 impact)"
                 friendly_text = key_driver_text(row)
                 st.error(f"**{friendly_text}**")
         else:
@@ -179,9 +185,16 @@ if predict_button:
         if feature == "InternetService_No Internet" and value == 1:
             return "**Digital Onboarding:** This customer has no internet. Call them to see if they are interested in a basic DSL starter package for $20/mo."
 
-        # if monthly charge is too high for that specific customer
+        # high or low monthly charges
         if feature == "MonthlyCharges":
-            return "**Loyalty Discount:** Price is a major pain point for this customer. Offer a 10% 'Loyalty Discount' if they renew for 1 year."
+            if monthly_charge > 80:
+                return "**Loyalty Discount:** This customer's bill is high. Offer a 10% discount to lock them in for another year."
+            
+            elif monthly_charge < 30:
+                return "**Service Upgrade:** This customer is on a basic low-tier plan. Offer a free upgrade to the next tier to increase value."
+            
+            else:
+                 return "**Value Review:** Review their usage and ensure they are getting the best value for their money."
 
         # low tenure means new customer
         if feature == "Tenure":
@@ -197,7 +210,7 @@ if predict_button:
     
     # Loop through the risk factors and get solutions
     if not risk_factors.empty:
-        for index, row in risk_factors.iterrows():
+        for index, row in risk_factors.head(3).iterrows():
             sol = get_solution(row)
             if sol:
                 suggestions.append(sol)
