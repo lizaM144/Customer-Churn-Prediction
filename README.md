@@ -27,3 +27,30 @@ graph TD
         Logic --> Model["Random Forest Model (.pkl)"]
     end
 ```
+
+**The easiest way to run the application is using Docker compose.**
+
+**Prerequisites**
+
+1. Docker & Docker Compose installed on your machine.
+
+**Steps**
+
+1. Clone this repository.
+2. Run the application.
+   - docker-compose up --build
+3. Access the interfaces:
+   - Dashboard: http://localhost:8501
+   - API Documentation: http://localhost:8000/docs
+
+**Usage Guide**
+
+1. Using the Dashboard
+
+- Navigate to localhost:8501.
+- Enter customer details(Age, Monthly Charge, Tenure, etc.).
+- Click "Predict Churn".
+- View Results:
+  - Risk Score: Probability of churn (0-100%).
+  - SHAP Analysis: Visual explanation of why the mode made that decision.
+  - Retention suggestions: Bussiness recommendation based on risk factors.
