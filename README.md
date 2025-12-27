@@ -24,6 +24,6 @@ graph TD
     subgraph Docker Container
         Streamlit --> Logic[Preprocessing Logic]
         API --> Logic
-        Logic --> Model[Random Forest Model (.pkl)]
+        Logic --> Model["Random Forest Model (.pkl)"]
     end
 ```
