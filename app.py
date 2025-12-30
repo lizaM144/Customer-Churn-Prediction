@@ -87,23 +87,11 @@ if predict_button:
     explainer = shap.TreeExplainer(model)
     shap_values = explainer(input_data)
     
-    # --- 6. SHAP Explanation ---
-    st.divider()
-    st.subheader("Why this result?")
-    st.write("The chart below shows which features pushed the risk UP (Red) or DOWN (Blue).")
-    
-    # Plot
-    fig, ax = plt.subplots()
-    shap.plots.waterfall(shap_values[0, :, 1], show=False, max_display=10)
-    st.pyplot(plt.gcf())
-
-###
     # Smart Explanation
     st.divider()
     st.subheader("Key Factors Behind this Result")
     
     # Extract the values for the single prediction (Row 0, Class 1)
-    # .values returns the raw numbers
     feature_importance = pd.DataFrame({
         'Feature': features,
         'Value': input_data.iloc[0].values, # The actual input values (0 or 1)
