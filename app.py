@@ -5,14 +5,16 @@
 
 import streamlit as st
 import joblib
-import numpy as np
 import pandas as pd
 import shap
-import matplotlib.pyplot as plt
+import requests
 
-scaler = joblib.load('scaler.pkl')
 model = joblib.load('best_model.pkl')
-features = joblib.load('feature_names.pkl') # Load feature names
+scaler = joblib.load('scaler.pkl')
+features = joblib.load('feature_names.pkl')
+explainer = shap.TreeExplainer(model)
+
+API_URL = "http://api:8000/predict"
 
 st.set_page_config(page_title="Churn Predictor", layout="centered")
 st.title("Customer Churn Prediction")
@@ -36,17 +38,11 @@ predict_button = st.button("Predict Churn")
 
 if predict_button:
     
-    # mapping the categorical inputs to numbers
     gender_val = 1 if gender == "Female" else 0
-    
-    # we only check for Fiber and No Internet since DSL is the base case
     is_fiber = 1 if internet_service == "Fiber Optic" else 0
     is_no_internet = 1 if internet_service == "No Internet" else 0
-    
-    # Tech Support Mapping
     tech_yes = 1 if tech_support == "Yes" else 0
-    
-    # array with all features in order
+
     input_dict = {
     'Age': age,
     'Gender': gender_val,
@@ -58,20 +54,40 @@ if predict_button:
     }
 
     input_df = pd.DataFrame([input_dict])
-    input_df = input_df[features]  # enforce order
+    input_df = input_df[features]
     
-    # scale only numeric columns
     input_df[['Age', 'Tenure', 'MonthlyCharges']] = scaler.transform(input_df[['Age', 'Tenure', 'MonthlyCharges']])
     input_data = input_df
 
     st.divider()
-    # prediction
-    probability = model.predict_proba(input_data)[0][1] # Probability of Churn (Class 1)
-    
-    # results
     st.subheader("Prediction Result")
-    
-    prob_percentage = probability * 100
+
+    try:
+        response = requests.post(
+            API_URL,
+            json={
+                "Age": age,
+                "Gender": gender,
+                "Tenure": tenure,
+                "MonthlyCharges": monthly_charge,
+                "InternetService": internet_service,
+                "TechSupport": tech_support
+            },
+            timeout=10
+        )
+        response.raise_for_status()
+        result = response.json()
+        prob_percentage = result["probability_percent"]
+        risk = result["risk_drivers"]
+    except requests.exceptions.ConnectionError:
+        st.error("Cannot connect to the prediction API. Make sure the FastAPI server is running on port 8000.")
+        st.stop()
+    except requests.exceptions.Timeout:
+        st.error("API request timed out. Please try again.")
+        st.stop()
+    except Exception as e:
+        st.error(f"API error: {str(e)}")
+        st.stop()
     
     if prob_percentage < 30:
         st.success(f"Low Risk: {prob_percentage:.1f}% Probability of Churn")
@@ -84,7 +100,6 @@ if predict_button:
         st.write("Suggestion: HIGH CHURN RISK! Immediate action required. Offer a long-term contract discount or dedicated support.")
 
     # Calculate SHAP values
-    explainer = shap.TreeExplainer(model)
     shap_values = explainer(input_data)
     
     # Smart Explanation
